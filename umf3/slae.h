@@ -86,6 +86,8 @@ namespace slae
 		// Вспомогательные функции для решателя
 		void LYF(const vector<double> C, vector<double>& yl);
 		void UXY(const vector<double> C, vector<double>& yu);
+		void UTYF(const vector<double> f, vector<double>& y);
+		void LTXY(const vector<double> y, vector<double>& x);
 		double Rel_Discrepancy();
 
 		lu::LU solverLU;
@@ -94,6 +96,7 @@ namespace slae
 		void LULOS();
 		void SolveLU();
 		void BCG_STAB();
+		void LUBCG();
 	public:
 		SLAE();
 		void Solve();

@@ -453,6 +453,38 @@ namespace slae
 		}
 	}
 
+
+	void SLAE::UTYF(const vector <double> f, vector <double> &y)
+	{
+		int i, i0, iend;
+		for (i = 0; i < n; i++)
+		{
+			i0 = A.ig[i]; iend = A.ig[i + 1];
+
+			y[i] = f[i];
+
+			for (i0; i0 < iend; i0++)
+				y[i] -= y[A.jg[i0]] * U[i0];
+		}
+	}
+
+	void SLAE::LTXY(const vector <double> y, vector <double> &x)
+	{
+		int i, i0, iend;
+
+		for (i = 0; i < n; i++)
+			x[i] = y[i];
+		//проход по столбцам с конца
+		for (i = n - 1; i >= 0; i--)
+		{
+			i0 = A.ig[i]; iend = A.ig[i + 1]; iend--;
+			x[i] /= D[i];
+			//идём по столбцу с конца
+			for (; iend >= i0; iend--)
+				x[A.jg[iend]] -= x[i] * L[iend];
+		}
+	}
+
 	double SLAE::Rel_Discrepancy()
 	{
 		double dis1, dis2;
@@ -644,4 +676,74 @@ namespace slae
 		fclose(fo);
 	}
 
+	void SLAE::LUBCG()
+	{
+		double alpha, betta, dis, pr;
+		int i, k;
+		vector <double> s(n), p(n), tmpZ(n), tmpS(n);
+		FILE *fo;
+		fopen_s(&fo, "LUBCG_result.txt", "w");
+		for (auto &i : u) i = 0;
+
+		unsigned int beginTime = clock();
+		LU();
+
+		UXY(u, r);
+		A.MultiplyAx(r, r);
+		LYF(r, r);
+
+		LYF(F, z);
+
+		//L^(-1)f-L^(-1)AU^(-1)*x0
+		for (i = 0; i < n; i++)
+			r[i] = z[i] - r[i];
+
+		z = p = s = r;
+		dis = Norm(r);
+		for (k = 0; dis > eps && k <= maxiter; k++)
+		{
+			pr = Scalar(p, r);
+
+			UXY(z, tmpZ);
+			A.MultiplyAx(tmpZ, tmpZ);
+			LYF(tmpZ, tmpZ);
+
+			// ak = ( p, r ) / ( s, L^(-1)AU^(-1)zk )
+			alpha = pr / Scalar(s, tmpZ);
+
+			LTXY(s, tmpS);
+			A.MultiplyATx(tmpS, tmpS);
+			UTYF(tmpS, tmpS);
+
+			for (i = 0; i < n; i++)
+			{
+				u[i] = u[i] + alpha*z[i];
+				r[i] = r[i] - alpha*tmpZ[i];
+				p[i] = p[i] - alpha*tmpS[i];
+			}
+
+			betta = Scalar(p, r) / pr;
+
+			for (i = 0; i < n; i++)
+			{
+				z[i] = r[i] + betta*z[i];
+				s[i] = p[i] + betta*s[i];
+			}
+
+			dis = Norm(r);
+		}
+		UXY(u, u);
+		unsigned int endTime = clock();
+
+		fprintf(fo, "time: %d мс\n", endTime - beginTime);
+		fprintf(fo, "iter: %d\n", k);
+		fprintf(fo, "res: %e\n", dis);
+		for (int i = 0; i < n; i++)
+		{
+			fprintf(fo, "%.14f\t", u[i]);
+			fprintf(fo, "%.14f\n", u[i + 1]);
+			i++;
+		}
+		fclose(fo);
+	}
 }
